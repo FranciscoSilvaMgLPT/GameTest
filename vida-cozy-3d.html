@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Vida Cozy 3D — O teu companheiro digital</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --bg:#0f1420; --glass:rgba(22,28,45,.72); --glass2:rgba(32,40,64,.85);
+  --acc:#ffb454; --acc2:#6ee7ff; --ok:#4ade80; --bad:#f87171;
+  --txt:#f1f5ff; --mut:#8fa0c5;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+  font-family:'Segoe UI',-apple-system,Roboto,sans-serif}
+#c3d{position:fixed;inset:0;display:block;touch-action:none}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+
+/* ---------- HUD ---------- */
+#hudTop{position:fixed;top:0;left:0;right:0;padding:10px 12px;display:flex;gap:8px;
+  align-items:center;z-index:20;pointer-events:none}
+.glass{pointer-events:auto;background:var(--glass);backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);border-radius:14px;padding:7px 12px;font-size:12px;
+  border:1px solid rgba(255,255,255,.1);box-shadow:0 4px 20px rgba(0,0,0,.35)}
+#clock{font-weight:800;font-size:14px;letter-spacing:.5px}
+#coins{color:var(--acc);font-weight:700}
+#lvl{color:var(--acc2);font-weight:700}
+#needs{display:flex;gap:8px;overflow-x:auto;max-width:44vw;scrollbar-width:none}
+#needs::-webkit-scrollbar{display:none}
+.need{min-width:42px;text-align:center}
+.need .ico{font-size:16px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+.need .bar{height:4px;border-radius:3px;background:rgba(255,255,255,.15);margin-top:3px;overflow:hidden}
+.need .bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#4ade80,#a3e635);transition:width .4s}
+.need.low .bar i{background:linear-gradient(90deg,#f87171,#fb923c)}
+.need span{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px}
+
+/* ---------- Bolha ---------- */
+#bubble{position:fixed;left:50%;transform:translateX(-50%);bottom:170px;max-width:84vw;
+  background:linear-gradient(135deg,#ffffff,#eef2ff);color:#1e293b;padding:12px 16px;
+  border-radius:18px;font-size:14px;line-height:1.45;z-index:30;
+  box-shadow:0 12px 32px rgba(0,0,0,.45);opacity:0;transition:opacity .3s,transform .3s;
+  pointer-events:none;font-weight:500}
+#bubble.on{opacity:1}
+#bubble:after{content:'';position:absolute;bottom:-9px;left:50%;margin-left:-9px;
+  border:9px solid transparent;border-top-color:#eef2ff;border-bottom:0}
+
+/* ---------- Ações ---------- */
+#interact{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:26;
+  display:flex;gap:10px;flex-wrap:wrap;justify-content:center;max-width:94vw}
+.actBtn{background:linear-gradient(135deg,#ffb454,#fb923c);color:#3a2200;border:0;
+  border-radius:22px;padding:12px 20px;font-weight:800;font-size:14px;
+  box-shadow:0 8px 24px rgba(251,146,60,.4);animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.85);opacity:0}}
+
+/* ---------- FABs ---------- */
+#fab{position:fixed;right:14px;bottom:96px;display:flex;flex-direction:column;gap:12px;z-index:25}
+.fabBtn{width:56px;height:56px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
+  font-size:24px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.45);transition:transform .15s}
+.fabBtn:active{transform:scale(.9)}
+#chatFab{background:linear-gradient(135deg,#8b5cf6,#6366f1)}
+#voiceFab{background:linear-gradient(135deg,#10b981,#34d399)}
+#voiceFab.rec,#chatMic.rec{background:linear-gradient(135deg,#ef4444,#f87171);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.6}}
+#menuRow{position:fixed;left:14px;bottom:96px;display:flex;flex-direction:column;gap:10px;z-index:25}
+.menuBtn{width:48px;height:48px;border-radius:16px;border:1px solid rgba(255,255,255,.15);
+  background:var(--glass2);backdrop-filter:blur(10px);color:#fff;font-size:21px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+
+/* ---------- Sheets ---------- */
+.sheet{position:fixed;left:0;right:0;bottom:0;height:74vh;background:var(--glass2);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:24px 24px 0 0;
+  z-index:40;transform:translateY(108%);transition:transform .32s cubic-bezier(.32,.72,.35,1);
+  display:flex;flex-direction:column;border-top:1px solid rgba(255,255,255,.12);
+  box-shadow:0 -12px 48px rgba(0,0,0,.55)}
+.sheet.open{transform:translateY(0)}
+.sheetHead{display:flex;align-items:center;gap:10px;padding:16px 18px 8px}
+.sheetHead h2{font-size:17px;flex:1;letter-spacing:.3px}
+.closeX{background:rgba(255,255,255,.08);border:0;color:var(--mut);font-size:16px;width:32px;height:32px;border-radius:50%}
+.sheetBody{flex:1;overflow-y:auto;padding:6px 18px 24px;-webkit-overflow-scrolling:touch}
+
+/* Chat */
+#chatLog{display:flex;flex-direction:column;gap:8px;padding-bottom:8px}
+.msg{max-width:84%;padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.45;white-space:pre-wrap;animation:pop .2s}
+.msg.me{align-self:flex-end;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border-bottom-right-radius:5px}
+.msg.ai{align-self:flex-start;background:rgba(255,255,255,.1);border-bottom-left-radius:5px}
+.msg.ai b{color:var(--acc)}
+#chatInputRow{display:flex;gap:8px;padding:10px 12px;border-top:1px solid rgba(255,255,255,.08)}
+#chatIn{flex:1;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.1);
+  border-radius:22px;padding:12px 15px;color:#fff;font-size:15px;outline:none}
+#chatSend,#chatMic{border:0;border-radius:50%;width:46px;height:46px;font-size:18px;color:#fff;flex-shrink:0}
+#chatSend{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+#chatMic{background:linear-gradient(135deg,#10b981,#34d399)}
+
+/* Tarefas */
+.task{background:rgba(255,255,255,.07);border-radius:16px;padding:13px;margin-bottom:10px;border-left:4px solid var(--acc2)}
+.task.p-alta{border-left-color:var(--bad)}.task.p-media{border-left-color:var(--acc)}
+.task.done{opacity:.45}.task.done .tTitle{text-decoration:line-through}
+.tTitle{font-weight:700;font-size:15px}
+.tMeta{font-size:12px;color:var(--mut);margin-top:3px}
+.tRow{display:flex;gap:8px;margin-top:9px;align-items:center}
+.miniBtn{border:0;border-radius:11px;padding:7px 13px;font-size:12px;font-weight:700;background:#3b82f6;color:#fff}
+.miniBtn.ghost{background:rgba(255,255,255,.08);color:var(--mut)}
+.miniBtn.del{background:var(--bad)}
+.inp{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;padding:12px 13px;color:#fff;font-size:15px;margin-bottom:8px;outline:none}
+.inp::placeholder{color:var(--mut)}
+select.inp{padding:11px}
+textarea.inp{resize:vertical}
+.addBtn{width:100%;background:linear-gradient(135deg,#ffb454,#fb923c);border:0;border-radius:14px;
+  padding:13px;font-weight:800;font-size:15px;color:#3a2200;margin-top:4px}
+
+/* Calendário */
+#calGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.calDow{font-size:11px;text-align:center;color:var(--mut);padding:5px 0}
+.calDay{min-height:54px;background:rgba(255,255,255,.06);border-radius:10px;padding:5px;font-size:12px}
+.calDay .n{font-weight:700;font-size:11px}
+.calDay.today{outline:2px solid var(--acc);background:rgba(255,180,84,.12)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--acc2);display:inline-block;margin:1px}
+.dot.evt{background:var(--acc)}.dot.bday{background:#f472b6}
+
+/* Notas */
+.note{background:rgba(255,255,255,.07);border-radius:16px;padding:13px;margin-bottom:10px}
+.note .nTitle{font-weight:700}
+.note .nBody{font-size:13px;color:var(--mut);white-space:pre-wrap;margin-top:4px}
+
+/* Loja */
+.shopItem{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.07);
+  border-radius:16px;padding:13px;margin-bottom:10px}
+.shopItem .si{flex:1}.shopItem .si b{font-size:14px}
+.shopItem .si small{color:var(--mut);display:block}
+.price{color:var(--acc);font-weight:800}
+
+/* Toast */
+#toast{position:fixed;top:66px;left:50%;transform:translateX(-50%) translateY(-16px);
+  background:#fff;color:#1e293b;padding:11px 18px;border-radius:16px;font-size:14px;z-index:50;
+  box-shadow:0 10px 30px rgba(0,0,0,.45);opacity:0;transition:all .3s;max-width:88vw;font-weight:600}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Onboarding */
+#onboard{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+  justify-content:center;padding:30px;background:
+  radial-gradient(1200px 800px at 80% -10%,#2a3560 0%,transparent 60%),
+  radial-gradient(900px 700px at -10% 110%,#1c3a4a 0%,transparent 55%),var(--bg);
+  overflow-y:auto}
+#onboard .card{max-width:420px;margin:0 auto;width:100%}
+#onboard h1{font-size:30px;margin-bottom:8px;background:linear-gradient(90deg,#ffb454,#6ee7ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+#onboard p{color:var(--mut);font-size:14px;margin-bottom:20px;line-height:1.55}
+.persGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:12px 0 18px}
+.persBtn{background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);border-radius:16px;
+  padding:13px;color:#fff;font-size:14px;font-weight:700;text-align:left;transition:border .2s}
+.persBtn small{display:block;font-weight:400;color:var(--mut);margin-top:3px;font-size:11px}
+.persBtn.sel{border-color:var(--acc);background:rgba(255,180,84,.12)}
+.swatches{display:flex;gap:10px;margin:0 0 18px}
+.sw{width:38px;height:38px;border-radius:50%;border:3px solid transparent}
+.sw.sel{border-color:#fff;transform:scale(1.1)}
+#err{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;place-items:center;padding:30px;text-align:center;color:var(--mut);font-size:15px;line-height:1.6}
+</style>
+</head>
+<body>
+<canvas id="c3d"></canvas>
+
+<div id="hudTop">
+  <div class="glass" id="clock">Seg 08:00</div>
+  <div class="glass" id="coins">🪙 50</div>
+  <div class="glass" id="lvl">⭐ 1</div>
+  <div class="glass" id="needs"></div>
+</div>
+
+<div id="bubble"></div>
+<div id="interact"></div>
+
+<div id="menuRow">
+  <button class="menuBtn" id="btnTasks">✅</button>
+  <button class="menuBtn" id="btnCal">📅</button>
+  <button class="menuBtn" id="btnNotes">📝</button>
+  <button class="menuBtn" id="btnShop">🛒</button>
+</div>
+<div id="fab">
+  <button class="fabBtn" id="chatFab">🤖</button>
+  <button class="fabBtn" id="voiceFab">🎙️</button>
+</div>
+
+<div class="sheet" id="chatSheet">
+  <div class="sheetHead"><h2 id="chatTitle">🤖 Companheiro</h2><button class="closeX" data-close="chatSheet">✕</button></div>
+  <div class="sheetBody" id="chatLog"></div>
+  <div id="chatInputRow">
+    <input id="chatIn" placeholder="Fala comigo... ex: «lembrar comprar leite amanhã»">
+    <button id="chatMic">🎙️</button>
+    <button id="chatSend">➤</button>
+  </div>
+</div>
+
+<div class="sheet" id="tasksSheet">
+  <div class="sheetHead"><h2>✅ Tarefas</h2><button class="closeX" data-close="tasksSheet">✕</button></div>
+  <div class="sheetBody">
+    <input class="inp" id="taskTitle" placeholder="Nova tarefa... ex: Comprar leite">
+    <div style="display:flex;gap:8px">
+      <select class="inp" id="taskPrio" style="flex:1"><option value="normal">Normal</option><option value="alta">🔴 Alta</option><option value="media">🟠 Média</option></select>
+      <input class="inp" id="taskWhen" style="flex:2" placeholder="Quando? ex: amanhã às 18h / sexta">
+    </div>
+    <button class="addBtn" id="taskAdd">＋ Adicionar tarefa</button>
+    <div id="taskList" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<div class="sheet" id="calSheet">
+  <div class="sheetHead"><h2 id="calTitle">📅 Calendário</h2><button class="closeX" data-close="calSheet">✕</button></div>
+  <div class="sheetBody"><div id="calGrid"></div></div>
+</div>
+
+<div class="sheet" id="notesSheet">
+  <div class="sheetHead"><h2>📝 Notas</h2><button class="closeX" data-close="notesSheet">✕</button></div>
+  <div class="sheetBody">
+    <input class="inp" id="noteSearch" placeholder="🔍 Pesquisar notas...">
+    <input class="inp" id="noteTitle" placeholder="Título da nota">
+    <textarea class="inp" id="noteBody" rows="3" placeholder="Escreve aqui... (ou diz: «nota: ideia do projeto»)"></textarea>
+    <button class="addBtn" id="noteAdd">＋ Guardar nota</button>
+    <div id="noteList" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<div class="sheet" id="shopSheet">
+  <div class="sheetHead"><h2>🛒 Loja & Desbloqueios</h2><button class="closeX" data-close="shopSheet">✕</button></div>
+  <div class="sheetBody" id="shopList"></div>
+</div>
+
+<div id="toast"></div>
+
+<div id="onboard">
+  <div class="card">
+    <h1>🏡 Vida Cozy 3D</h1>
+    <p>Vive a tua vida dentro do jogo enquanto organizas a tua vida real.<br>Conhece o teu companheiro digital:</p>
+    <input class="inp" id="obName" placeholder="Nome do personagem" value="Milo">
+    <div class="swatches" id="swatches"></div>
+    <div class="persGrid" id="persGrid"></div>
+    <button class="addBtn" id="obStart">▶ Começar a viver</button>
+  </div>
+</div>
+
+<div id="err"><div>😢 Não foi possível carregar o motor 3D (Three.js).<br>Verifica a ligação à internet e recarrega a página.</div></div>
+
+<script>
+if(!window.THREE){document.getElementById('err').style.display='grid';}
+</script>
+<script>
+
+/* ============================================================
+   VIDA COZY 3D — mundo, render, movimento
+============================================================ */
+const S = {
+  name:'Milo', personality:'amigo', color:0x4f46e5,
+  day:1, hour:8, minute:0, speed:1,
+  coins:60, xp:0, level:1,
+  needs:{energia:80,fome:70,higiene:80,diversao:60,social:50,sono:75,motivacao:70},
+  pos:{x:-4,z:1}, target:null, yaw:0, moving:false, walkT:0,
+  tasks:[], notes:[], memories:[], events:[],
+  unlocked:{escritorio:true,jardim:false,ginasio:false,cafe:true,mercado:true,parque:true},
+  decor:{tv:false,pc:false,planta:false,quadro:false},
+  reminded:{}, lastGreetDay:0, voice:true, pendingConfirm:null,
+};
+const PERS = {
+  amigo:      {label:'Amigo', desc:'Caloroso e próximo', greet:'Bom dia! Ótimo ver-te. ☀️', style:'Hey! '},
+  pro:        {label:'Profissional', desc:'Eficiente e direto', greet:'Bom dia. Aqui está o resumo de hoje.', style:'De acordo. '},
+  engracado:  {label:'Engraçado', desc:'Brincalhão', greet:'Bom dia! A cama tentou reter-me, mas escapei. 😄', style:'Haha! '},
+  motivador:  {label:'Motivador', desc:'Energia e foco', greet:'Bom dia! Hoje vamos esmagar essas tarefas! 💪', style:'Vamos lá! '},
+  calmo:      {label:'Calmo', desc:'Sereno', greet:'Bom dia. Sem pressa, começamos com calma. 🌿', style:'Com calma. '},
+  sarcastico: {label:'Sarcástico', desc:'Seco e espirituoso', greet:'Oh, acordaste. Milagres acontecem.', style:'Uau. '},
+  minimalista:{label:'Minimalista', desc:'Só o essencial', greet:'Bom dia. Tens 2 tarefas hoje.', style:''},
+};
+const DOW=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+const NEED_ICONS={energia:'⚡',fome:'🍔',higiene:'🛁',diversao:'🎮',social:'💬',sono:'😴',motivacao:'🎯'};
+
+const $=id=>document.getElementById(id);
+const save=()=>localStorage.setItem('vidacozy3d',JSON.stringify(S));
+const load=()=>{try{const d=JSON.parse(localStorage.getItem('vidacozy3d'));if(d)Object.assign(S,d);}catch(e){}};
+const pad=n=>String(n).padStart(2,'0');
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const dowOf=d=>DOW[(d-1)%7];
+const fmtDate=d=>dowOf(d)+' dia '+d;
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),3200);}
+let bubbleT=null;
+function say(text,ms=5200){const b=$('bubble');b.textContent=text;b.classList.add('on');
+  if(S.voice&&window.speechSynthesis){try{const clean=text.replace(/([\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]|[⭐✅📌📅📝💙🎉⚠️⏰🎂🌤️✨☀️🌙😊💪🍔😴⚡🛁🎮💬🎯])/gu,'');
+    const u=new SpeechSynthesisUtterance(clean);u.lang='pt-PT';u.rate=1.06;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+  clearTimeout(bubbleT);bubbleT=setTimeout(()=>b.classList.remove('on'),ms);}
+
+/* ================= CENA 3D ================= */
+let scene,camera,renderer,sun,hemi,moonLamp,charGroup,labelSprites=[];
+const WALLS=[]; // AABB colisores {x1,z1,x2,z2}
+
+function init3D(){
+  renderer=new THREE.WebGLRenderer({canvas:$('c3d'),antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(0xbfd9ef,30,90);
+  camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,200);
+
+  hemi=new THREE.HemisphereLight(0xcfe8ff,0x6b7a55,.75);scene.add(hemi);
+  sun=new THREE.DirectionalLight(0xfff2d8,1.05);
+  sun.position.set(12,18,8);sun.castShadow=true;
+  sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-18;sun.shadow.camera.right=18;
+  sun.shadow.camera.top=18;sun.shadow.camera.bottom=-18;
+  scene.add(sun);
+
+  // chão
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),
+    new THREE.MeshLambertMaterial({color:0x7fbf6a}));
+  ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+  // estrada
+  const road=new THREE.Mesh(new THREE.PlaneGeometry(80,5),
+    new THREE.MeshLambertMaterial({color:0x5a6070}));
+  road.rotation.x=-Math.PI/2;road.position.set(0,0.01,8.5);road.receiveShadow=true;scene.add(road);
+  for(let i=-9;i<10;i++){const dash=new THREE.Mesh(new THREE.PlaneGeometry(1.2,.16),
+    new THREE.MeshBasicMaterial({color:0xf5f0d8}));
+    dash.rotation.x=-Math.PI/2;dash.position.set(i*2.2,0.02,8.5);scene.add(dash);}
+  // passeio em frente à casa
+  const side=new THREE.Mesh(new THREE.PlaneGeometry(16,1.6),
+    new THREE.MeshLambertMaterial({color:0xb9c0cc}));
+  side.rotation.x=-Math.PI/2;side.position.set(0,0.01,5.2);side.receiveShadow=true;scene.add(side);
+
+  buildHouse();
+  buildStreet();
+  charGroup=buildChar(S.color);scene.add(charGroup);
+  placeChar(S.pos.x,S.pos.z);
+
+  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);});
+  renderer.setSize(innerWidth,innerHeight);
+  $('c3d').addEventListener('pointerdown',onTap);
+}
+const M=(c)=>new THREE.MeshLambertMaterial({color:c});
+function box(w,h,d,c,x,y,z,parent,shadow=true){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));
+  m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;(parent||scene).add(m);return m;}
+function wall(x1,z1,x2,z2,h=1.6,t=.18,c=0xf3ead8){ // parede com colisão
+  const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(len,h,t),M(c));
+  m.position.set((x1+x2)/2,h/2,(z1+z2)/2);
+  m.rotation.y=-Math.atan2(dz,dx);
+  m.castShadow=m.receiveShadow=true;scene.add(m);
+  const pad=t/2+.05;
+  WALLS.push({x1:Math.min(x1,x2)-pad,z1:Math.min(z1,z2)-pad,x2:Math.max(x1,x2)+pad,z2:Math.max(z1,z2)+pad});
+  return m;}
+function emojiSprite(emoji,x,y,z,scale=1){const cv=document.createElement('canvas');cv.width=cv.height=128;
+  const g=cv.getContext('2d');g.font='96px sans-serif';g.textAlign='center';g.textBaseline='middle';
+  g.fillText(emoji,64,70);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true}));
+  sp.position.set(x,y,z);sp.scale.set(scale,scale,1);sp.userData.interactive=true;scene.add(sp);
+  labelSprites.push(sp);return sp;}
+
+function buildHouse(){
+  // pavimento da casa (plataforma)
+  box(12.6,.25,8.6,0xd9c8a9,0,.125,-0.5).receiveShadow=true;
+  // pavimentos por divisão
+  const fl=(w,d,c,x,z)=>box(w,.06,d,c,x,.28,z).receiveShadow=true;
+  fl(4,4,0xcbb8e8,-4,-2.5);   // quarto
+  fl(4,4,0xe8cfae,0,-2.5);    // cozinha
+  fl(2.5,4,0xaed8de,2.75,-2.5);// wc
+  fl(6.5,4,0xbcd8ae,-2.75,1.5);// sala
+  fl(5,4,0xe0d3a0,3.25,1.5);  // escritório
+  fl(2.4,8.6,0x8fce9e,7.6,-0.5); // jardim
+
+  // paredes exterior (portas: entrada sul ao centro; jardim a leste)
+  wall(-6.3,-4.8,-6.3,3.8);            // oeste
+  wall(-6.3,3.8,-1.2,3.8);             // sul-esq
+  wall(1.2,3.8,6.3,3.8);               // sul-dir (entrada no meio)
+  wall(6.3,3.8,6.3,-1.4);              // leste (baixo)
+  wall(6.3,-3.0,6.3,-4.8);             // leste (cima) — porta p/ jardim ao meio
+  wall(-6.3,-4.8,6.3,-4.8);            // norte
+  // paredes interior com portas
+  wall(-2,-4.8,-2,-3.2);wall(-2,-1.8,-2,-.8);wall(-2,-.8,-2,3.8);   // quarto|cozinha/sala
+  wall(2,-4.8,2,-3.4);wall(2,-2.4,2,-.6);wall(2,-.6,2,.4);wall(2,1.6,2,3.8); // cozinha|wc/escritório
+  wall(-2,-.8,2,-.8);                                                 // sala|escritório parcial
+  wall(5.4,-4.8,5.4,-3.0);wall(5.4,-1.4,5.4,3.8);                     // escritório|jardim (porta)
+  wall(-6.3,-.8,-2,-.8);                                              // quarto|sala
+  // vedação do jardim
+  wall(8.9,3.8,8.9,-4.8,1,0xc9b891);wall(6.3,3.9,8.9,3.9,1,0xc9b891);wall(6.3,-4.9,8.9,-4.9,1,0xc9b891);
+  // telhado flutuante (estilo diorama)
+  const roof=box(13.4,.3,9.4,0x8a5a44,0,2.6,-0.5);
+  roof.material.transparent=true;roof.material.opacity=.92;
+
+  // mobílias (parent group casa)
+  const H=scene;
+  box(1.9,.35,1.1,0x9a7bd0,-4.5,.45,-3.4,H);          // cama base
+  box(1.6,.18,.8,0xffffff,-4.5,.68,-3.4,H);           // colchão
+  box(.5,.14,.7,0xffe9c9,-5.1,.78,-3.4,H);            // almofada
+  box(.9,1.7,.9,0xd7e3ea,2.9,.85,-3.5,H);             // duche/dispensa
+  box(1,1.8,.8,0xe8eef2,0,1.15,-4.2,H);               // frigorífico
+  box(1.4,.9,.7,0xb08968,0,.75,-1.6,H);               // bancada cozinha
+  box(1.6,.5,.8,0x6b8f5a,-4,.53,.8,H);                // sofá
+  box(1.6,.6,.2,0x5a7a4a,-4,.8,1.25,H);
+  box(1.4,.9,.35,0x30343f,-1.2,.75,-.2,H);            // TV
+  box(.8,1.4,.35,0x8a5a44,1.2,1.2,2.9,H);             // estante livros
+  box(1.6,.08,.8,0x8a6642,3.2,.62,.2,H);              // secretária
+  box(.5,.6,.5,0x3b4252,3.2,.3,1.0,H);                // cadeira
+  box(2,.9,.5,0x7a9e7e,7.6,.65,-3,H);                 // canteiro jardim
+  const trunk=box(.25,.7,.25,0x6b4a33,7.9,.35,1.5,H); // árvore jardim
+  const crown=new THREE.Mesh(new THREE.SphereGeometry(.8,10,10),M(0x4f9d5d));
+  crown.position.set(7.9,1.5,1.5);crown.castShadow=true;H.add(crown);
+
+  // objetos interativos: id, pos, emoji, rótulo
+  OBJS3D=[
+    {id:'cama',x:-4.5,z:-3.4,icon:'🛏️',name:'Cama'},
+    {id:'duche',x:2.9,z:-3.5,icon:'🚿',name:'WC'},
+    {id:'frigo',x:0,z:-4.2,icon:'🧊',name:'Cozinha'},
+    {id:'fogao',x:0,z:-1.6,icon:'🍳',name:'Fogão'},
+    {id:'sofa',x:-4,z:.8,icon:'🛋️',name:'Sofá'},
+    {id:'tv',x:-1.2,z:-.2,icon:'📺',name:'TV'},
+    {id:'livros',x:1.2,z:2.9,icon:'📚',name:'Estante'},
+    {id:'mesa',x:3.2,z:.2,icon:'💻',name:'Escritório'},
+    {id:'arvore',x:7.9,z:1.5,icon:'🌳',name:'Jardim',lock:'jardim'},
+    {id:'carrinho',x:-6,z:8.5,icon:'🛒',name:'Supermercado'},
+    {id:'cafe',x:-1.5,z:8.5,icon:'☕',name:'Café',lock:'cafe'},
+    {id:'parque',x:3,z:8.5,icon:'🌲',name:'Parque',lock:'parque'},
+    {id:'gym',x:7.5,z:8.5,icon:'🏋️',name:'Ginásio',lock:'ginasio'},
+  ];
+  for(const o of OBJS3D){o.sprite=emojiSprite(o.icon,o.x,1.9,o.z,.9);}
+}
+function buildStreet(){
+  // supermercado
+  box(4,2.4,2.6,0xe8734a,-6,1.2,8.5);
+  box(4.4,.3,3,0xffffff,-6,2.55,8.5);
+  emojiSprite('🛒',-6,3.2,8.5,1.2);
+  // café
+  box(3,2.2,2.6,0x8a6642,-1.5,1.1,8.5);
+  const aw=box(3.2,.15,1.2,0xd94f4f,-1.5,1.9,7.4);aw.rotation.x=.25;
+  emojiSprite('☕',-1.5,3,8.5,1.2);
+  // parque: árvores + banco
+  for(const[x,z]of[[2.2,7.6],[4,8.9],[3,9.6]]){box(.22,.8,.22,0x6b4a33,x,.4,z);
+    const c=new THREE.Mesh(new THREE.SphereGeometry(.65,9,9),M(0x3f8f4f));
+    c.position.set(x,1.25,z);c.castShadow=true;scene.add(c);}
+  box(1.2,.35,.4,0xa07845,3,.2,7.2);
+  emojiSprite('🌳',3,2.6,8.5,1.2);
+  // ginásio
+  box(3,2.6,2.6,0x4a5a78,7.5,1.3,8.5);
+  emojiSprite('🏋️',7.5,3.4,8.5,1.2);
+  // candeeiros
+  for(const x of[-8,-3,2,6]){box(.12,2.2,.12,0x3a3f4a,x,1.1,6.2);
+    const bulb=new THREE.Mesh(new THREE.SphereGeometry(.16,8,8),new THREE.MeshBasicMaterial({color:0xffe9a3}));
+    bulb.position.set(x,2.3,6.2);bulb.userData.lamp=true;scene.add(bulb);}
+}
+function buildChar(color){
+  const g=new THREE.Group();
+  const legs=new THREE.Group();
+  const l1=box(.16,.34,.16,0x2f3648,-.1,.17,0,legs);const l2=box(.16,.34,.16,0x2f3648,.1,.17,0,legs);
+  g.add(legs);g.userData.legs=legs;
+  box(.42,.5,.26,color,0,.6,0,g);                        // torso
+  const armL=box(.11,.4,.13,0xd9a066,-.29,.62,0,g);const armR=box(.11,.4,.13,0xd9a066,.29,.62,0,g);
+  g.userData.arms=[armL,armR];
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.21,14,14),M(0xffd9b3));
+  head.position.y=1.02;head.castShadow=true;g.add(head);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(.22,12,12,0,Math.PI*2,0,Math.PI*.55),M(0x5b4636));
+  hair.position.y=1.06;g.add(hair);
+  const e1=new THREE.Mesh(new THREE.SphereGeometry(.03,6,6),M(0x222222));e1.position.set(-.07,1.03,.18);g.add(e1);
+  const e2=e1.clone();e2.position.x=.07;g.add(e2);
+  const bl=new THREE.Mesh(new THREE.SphereGeometry(.035,6,6),M(0xf28b82));bl.position.set(-.09,.97,.18);g.add(bl);
+  const br=bl.clone();br.position.x=.09;g.add(br);
+  return g;
+}
+function placeChar(x,z){S.pos.x=x;S.pos.z=z;charGroup.position.set(x,0,z);}
+
+/* ================= CÉU / DIA-NOITE ================= */
+const SKY={day:new THREE.Color(0x9fd3f5),dusk:new THREE.Color(0xf5a86b),night:new THREE.Color(0x141a33)};
+function updateSky(){
+  const h=S.hour+S.minute/60;let c,amb=.75,sunI=1.05;
+  if(h>=7&&h<18){c=SKY.day.clone();}
+  else if(h>=18&&h<20){const t=(h-18)/2;c=SKY.day.clone().lerp(SKY.dusk,t);sunI=1.05-.5*t;}
+  else if(h>=20&&h<21.5){const t=(h-20)/1.5;c=SKY.dusk.clone().lerp(SKY.night,t);sunI=.55-.5*t;amb=.4;}
+  else{c=SKY.night.clone();amb=.28;sunI=.06;}
+  scene.background=c;scene.fog.color=c;
+  hemi.intensity=amb;sun.intensity=sunI;
+  sun.position.set(Math.cos((h-6)/12*Math.PI)*14,Math.max(2,Math.sin((h-6)/12*Math.PI)*16),8);
+  scene.traverse(o=>{if(o.userData.lamp)o.material.color.set(h>=19.5||h<6?0xffd97a:0x9aa2b5);});
+}
+
+/* ================= TOQUE / MOVIMENTO ================= */
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+const groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+function onTap(e){
+  if(e.target!==$('c3d'))return;
+  ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const hits=ray.intersectObjects(labelSprites);
+  const pt=new THREE.Vector3();
+  ray.ray.intersectPlane(groundPlane,pt);
+  if(!pt)return;
+  if(hits.length){const sp=hits[0].object;const o=OBJS3D.find(o=>o.sprite===sp);
+    if(o&&(!o.lock||S.unlocked[o.lock])){S.target={x:o.x,z:o.z};return;}}
+  S.target={x:clamp(pt.x,-14,14),z:clamp(pt.z,-9,13)};
+}
+function collide(x,z){const r=.32;
+  for(const w of WALLS){if(x>w.x1-r&&x<w.x2+r&&z>w.z1-r&&z<w.z2+r){
+    const dl=x-(w.x1-r),dr=(w.x2+r)-x,dt2=z-(w.z1-r),db=(w.z2+r)-z;
+    const m=Math.min(dl,dr,dt2,db);
+    if(m===dl)x=w.x1-r;else if(m===dr)x=w.x2+r;else if(m===dt2)z=w.z1-r;else z=w.z2+r;}}
+  return{x:clamp(x,-14,14),z:clamp(z,-9,13)};}
+function stepMove(dt){
+  if(!S.target){S.moving=false;return;}
+  const dx=S.target.x-S.pos.x,dz=S.target.z-S.pos.z,d=Math.hypot(dx,dz);
+  if(d<.18){S.target=null;S.moving=false;return;}
+  S.moving=true;
+  const sp=3.4*dt;
+  const nx=S.pos.x+dx/d*sp,nz=S.pos.z+dz/d*sp;
+  const p=collide(nx,nz);S.pos.x=p.x;S.pos.z=p.z;
+  const wantYaw=Math.atan2(dx,dz);
+  let dy=wantYaw-S.yaw;while(dy>Math.PI)dy-=2*Math.PI;while(dy<-Math.PI)dy+=2*Math.PI;
+  S.yaw+=dy*Math.min(1,dt*10);
+  charGroup.position.set(S.pos.x,0,S.pos.z);
+  charGroup.rotation.y=S.yaw;
+  // animação andar
+  S.walkT+=dt*11;
+  const s=Math.sin(S.walkT);
+  charGroup.userData.legs.children[0].rotation.x=s*.7;
+  charGroup.userData.legs.children[1].rotation.x=-s*.7;
+  charGroup.userData.arms[0].rotation.x=-s*.5;
+  charGroup.userData.arms[1].rotation.x=s*.5;
+  charGroup.position.y=Math.abs(Math.sin(S.walkT))*.05;
+}
+function idlePose(){if(S.moving)return;
+  charGroup.userData.legs.children[0].rotation.x*= .8;
+  charGroup.userData.legs.children[1].rotation.x*=.8;
+  charGroup.userData.arms.forEach(a=>a.rotation.x*=.8);
+  charGroup.position.y*=.8;}
+
+/* ---------- câmara segue ---------- */
+function camUpdate(dt){
+  const off=new THREE.Vector3(0,8.2,7.2);
+  const want=new THREE.Vector3(S.pos.x,0,S.pos.z).add(off);
+  camera.position.lerp(want,Math.min(1,dt*4));
+  camera.lookAt(S.pos.x,1,S.pos.z);
+}
+
+/* ---------- interação (CORREÇÃO: só redesenha quando muda) ---------- */
+let curNear=null;
+function nearestObject(){let best=null,bd=1.9;
+  for(const o of OBJS3D){if(o.lock&&!S.unlocked[o.lock])continue;
+    const d=Math.hypot(o.x-S.pos.x,o.z-S.pos.z);if(d<bd){bd=d;best=o;}}
+  return best;}
+function updateInteract(){const n=nearestObject();
+  if(n===curNear)return;curNear=n;
+  const el=$('interact');el.innerHTML='';
+  if(!n)return;
+  for(const a of ACTIONS[n.id]||[]){const b=document.createElement('button');
+    b.className='actBtn';b.textContent=a.n;b.onclick=()=>doAct(a);el.appendChild(b);}}
+
+/* ================= AÇÕES ================= */
+const ACTIONS={
+  cama:[{n:'😴 Dormir',t:120,e:{sono:60,energia:50},msg:'zzZ... que sono bom.'},
+        {n:'🛋️ Descansar',t:30,e:{energia:25,diversao:5},msg:'Uma pausa rápida.'}],
+  duche:[{n:'🚿 Banho',t:30,e:{higiene:50,energia:5},msg:'Refrescante! ✨'}],
+  frigo:[{n:'🍎 Comer',t:20,e:{fome:45,diversao:5},msg:'Bom e nutritivo!'}],
+  fogao:[{n:'🍳 Cozinhar',t:45,e:{fome:60,motivacao:10},msg:'Cheiro delicioso!'}],
+  sofa:[{n:'🛋️ Relaxar',t:30,e:{diversao:30,energia:10},msg:'Boa série!'}],
+  tv:[{n:'📺 Ver TV',t:40,e:{diversao:40},msg:'Entretenimento garantido.'}],
+  livros:[{n:'📖 Ler',t:45,e:{diversao:20,motivacao:20},msg:'Cultura nunca é demais.'}],
+  mesa:[{n:'💼 Estudar/Trabalhar',t:60,e:{motivacao:45,energia:-10},msg:'Muito produtivo! 🎯',taskBoost:true}],
+  arvore:[{n:'🌿 Ar livre',t:30,e:{energia:20,diversao:25},msg:'Ar puro, mente limpa.'}],
+  carrinho:[{n:'🛒 Supermercado',t:40,e:{fome:20,diversao:10},msg:'Compras feitas!',shopTask:true}],
+  cafe:[{n:'☕ Café com amigos',t:35,e:{social:45,energia:15},msg:'Ótima conversa!'}],
+  parque:[{n:'🚶 Passear',t:40,e:{diversao:35,energia:15},msg:'Que belo passeio.'}],
+  gym:[{n:'💪 Treinar',t:50,e:{energia:20,higiene:-10,motivacao:30},msg:'Mais forte a cada dia!'}],
+};
+function doAct(a){curNear=null;$('interact').innerHTML='';say(a.msg);
+  for(const[k,v]of Object.entries(a.e))S.needs[k]=clamp(S.needs[k]+v,0,100);
+  advanceTime(a.t);
+  if(a.taskBoost){const open=S.tasks.filter(t=>!t.done&&(t.cat==='estudo'||t.cat==='trabalho'));
+    if(open.length)completeTask(open[0].id,true);}
+  if(a.shopTask){const shop=S.tasks.filter(t=>!t.done&&t.title.toLowerCase().includes('compr'));
+    if(shop.length)completeTask(shop[0].id,true);}
+  save();}
+function advanceTime(mins){for(let i=0;i<mins;i++)tickClock();}
+
+/* ================= RELÓGIO / NECESSIDADES ================= */
+function tickClock(){
+  S.minute+=S.speed;
+  if(S.minute>=60){S.minute=0;S.hour++;
+    if(S.hour>=24){S.hour=0;S.day++;S.reminded={};}}
+  const dec=S.speed*0.055;
+  S.needs.fome=clamp(S.needs.fome-dec*1.4,0,100);
+  S.needs.energia=clamp(S.needs.energia-dec*1.1,0,100);
+  S.needs.higiene=clamp(S.needs.higiene-dec*0.7,0,100);
+  S.needs.diversao=clamp(S.needs.diversao-dec*0.9,0,100);
+  S.needs.social=clamp(S.needs.social-dec*0.6,0,100);
+  S.needs.sono=clamp(S.needs.sono-dec*0.8,0,100);
+  S.needs.motivacao=clamp(S.needs.motivacao-dec*0.5,0,100);
+}
+function needLow(){return Object.entries(S.needs).filter(([,v])=>v<25).map(([k])=>k);}
+
+/* ================= TAREFAS ================= */
+function addTask(t){t.id=Date.now()+Math.random();t.done=false;S.tasks.push(t);save();renderTasks();return t;}
+function completeTask(id,silent){const t=S.tasks.find(x=>x.id===id);if(!t||t.done)return;
+  t.done=true;S.xp+=20;S.coins+=15;checkLevel();
+  if(!silent)say(PERS[S.personality].style+'Tarefa concluída: «'+t.title+'». +20 XP, +15 🪙');
+  else say('Boa! Mais uma coisa riscada da lista. ✅');
+  toast('✅ '+t.title+' — +20 XP');save();renderTasks();}
+function delTask(id){S.tasks=S.tasks.filter(t=>t.id!==id);save();renderTasks();}
+function parseWhen(str){
+  let day=S.day,hour=null,minute=0;const s=(str||'').toLowerCase();
+  if(/amanh/.test(s))day=S.day+1;
+  else if(/depois de amanh/.test(s))day=S.day+2;
+  else{const dows=['segunda','terça','terca','quarta','quinta','sexta','sábado','sabado','domingo'];
+    for(let i=0;i<dows.length;i++)if(s.includes(dows[i])){const target=i%7;let d=S.day;
+      while((d-1)%7!==target)d++;day=d;break;}}
+  if(/hoje/.test(s)&&!/amanh/.test(s))day=S.day;
+  const m=s.match(/(\d{1,2})\s*[h:](\d{2})?/);
+  if(m){hour=+m[1];minute=m[2]?+m[2]:0;}
+  else if(/manhã|manha/.test(s))hour=9;else if(/tarde/.test(s))hour=15;else if(/noite/.test(s))hour=20;
+  return{day,hour,minute};
+}
+function taskTimeStr(t){let s=fmtDate(t.day);if(t.hour!=null)s+=' às '+pad(t.hour)+':'+pad(t.minute);return s;}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function renderTasks(){const el=$('taskList');if(!el)return;el.innerHTML='';
+  const open=S.tasks.filter(t=>!t.done).sort((a,b)=>a.day-b.day);
+  const done=S.tasks.filter(t=>t.done);
+  if(!open.length&&!done.length){el.innerHTML='<p style="color:var(--mut);font-size:13px">Sem tarefas. Diz «lembrar comprar leite amanhã» no chat! 👇</p>';return;}
+  for(const t of open.concat(done.slice(-5))){const d=document.createElement('div');
+    d.className='task p-'+t.prio+(t.done?' done':'');
+    d.innerHTML='<div class="tTitle">'+esc(t.title)+'</div><div class="tMeta">📆 '+taskTimeStr(t)+(t.cat?' · '+t.cat:'')+(t.recur?' 🔁':'')+'</div>';
+    const row=document.createElement('div');row.className='tRow';
+    if(!t.done){const b=document.createElement('button');b.className='miniBtn';b.textContent='✔ Concluir';
+      b.onclick=()=>completeTask(t.id);row.appendChild(b);}
+    const del=document.createElement('button');del.className='miniBtn del';del.textContent='🗑';
+    del.onclick=()=>delTask(t.id);row.appendChild(del);d.appendChild(row);el.appendChild(d);}}
+
+/* ================= CALENDÁRIO ================= */
+function renderCal(){const g=$('calGrid');if(!g)return;g.innerHTML='';
+  for(const d of DOW){const e=document.createElement('div');e.className='calDow';e.textContent=d;g.appendChild(e);}
+  const start=(S.day-1)%7,base=S.day-start;
+  for(let i=0;i<start;i++)g.appendChild(document.createElement('div'));
+  for(let i=start;i<42;i++){const day=base+i;if(day<1)continue;
+    const e=document.createElement('div');e.className='calDay'+(day===S.day?' today':'');
+    const ts=S.tasks.filter(t=>t.day===day),evs=S.events.filter(t=>t.day===day);
+    e.innerHTML='<div class="n">'+day+'</div>'+ts.map(()=>'<i class="dot"></i>').join('')+evs.map(ev=>'<i class="dot '+(ev.type==='bday'?'bday':'evt')+'"></i>').join('');
+    const names=[...ts.map(t=>t.title),...evs.map(ev=>ev.label)];if(names.length)e.title=names.join(' | ');
+    g.appendChild(e);}
+  $('calTitle').textContent='📅 '+dowOf(S.day)+', dia '+S.day;}
+
+/* ================= NOTAS ================= */
+function renderNotes(filter){const el=$('noteList');if(!el)return;el.innerHTML='';
+  const q=(filter||'').toLowerCase();
+  const list=S.notes.filter(n=>!q||n.title.toLowerCase().includes(q)||n.body.toLowerCase().includes(q));
+  if(!list.length){el.innerHTML='<p style="color:var(--mut);font-size:13px">Sem notas. Experimenta: «nota: ideias para o projeto»</p>';return;}
+  for(const n of list){const d=document.createElement('div');d.className='note';
+    d.innerHTML='<div class="nTitle">'+esc(n.title)+'</div><div class="nBody">'+esc(n.body)+'</div>';
+    const b=document.createElement('button');b.className='miniBtn ghost';b.textContent='🗑 Apagar';
+    b.style.marginTop='6px';b.onclick=()=>{S.notes=S.notes.filter(x=>x.id!==n.id);save();renderNotes($('noteSearch').value);};
+    d.appendChild(b);el.appendChild(d);}}
+
+/* ================= LOJA ================= */
+const SHOP=[
+  {id:'tv',icon:'📺',n:'Televisão 4K',p:80,d:'Diversão em casa',t:'decor'},
+  {id:'pc',icon:'🖥️',n:'PC Gaming',p:120,d:'Setup completo (decor)',t:'decor'},
+  {id:'planta',icon:'🪴',n:'Planta decorativa',p:40,d:'Natureza na sala',t:'decor'},
+  {id:'quadro',icon:'🖼️',n:'Quadro artístico',p:60,d:'Arte para as paredes',t:'decor'},
+  {id:'jardim',icon:'🌳',n:'Desbloquear Jardim',p:150,d:'Espaço zen exterior',t:'unlock'},
+  {id:'ginasio',icon:'🏋️',n:'Desbloquear Ginásio',p:200,d:'Treina o boneco',t:'unlock'},
+  {id:'roupa1',icon:'🧥',n:'Roupa nova',p:70,d:'Visual fresquinho (+30 XP)',t:'xp'},
+];
+function renderShop(){const el=$('shopList');if(!el)return;el.innerHTML='';
+  for(const it of SHOP){const owned=(it.t==='decor'&&S.decor[it.id])||(it.t==='unlock'&&S.unlocked[it.id]);
+    const d=document.createElement('div');d.className='shopItem';
+    d.innerHTML='<div style="font-size:26px">'+it.icon+'</div><div class="si"><b>'+it.n+'</b><small>'+it.d+'</small></div>';
+    const b=document.createElement('button');b.className='miniBtn';
+    if(owned){b.textContent='✔ Comprado';b.disabled=true;b.style.opacity=.5;}
+    else{b.innerHTML='<span class="price">🪙 '+it.p+'</span>';b.onclick=()=>{
+      if(S.coins<it.p){toast('Sem moedas! Completa tarefas 💪');return;}
+      S.coins-=it.p;
+      if(it.t==='decor'){S.decor[it.id]=true;applyDecor();}
+      else if(it.t==='unlock')S.unlocked[it.id]=true;else S.xp+=30;
+      checkLevel();save();renderShop();say('Arranjei «'+it.n+'»! Ficou espetacular.');};}
+    d.appendChild(b);el.appendChild(d);}}
+function applyDecor(){
+  if(S.decor.tv&&!document.getElementById('tvBig')){const t=box(1.6,1,0.12,0x111827,-1.2,1.15,-.05);t.id='tvBig';}
+  if(S.decor.planta&&!document.getElementById('plantaSala')){const p=emojiSprite('🪴',-5.5,1.1,2.8,.7);p.id='plantaSala';
+    if(!OBJS3D.find(o=>o.id==='planta')){OBJS3D.push({id:'planta',x:-5.5,z:2.8,icon:'🪴',name:'Planta',sprite:p});}}
+  if(S.decor.pc&&!document.getElementById('pcDesk')){const p=box(.5,.35,.06,0x1f2937,3.2,1.05,.35);p.id='pcDesk';}
+  if(S.decor.quadro&&!document.getElementById('quadroWall')){const q=box(1.1,.8,.06,0xfbbf24,-4,1.5,-4.7);q.id='quadroWall';}}
+
+/* ================= GAMIFICAÇÃO ================= */
+function checkLevel(){const need=S.level*60;
+  while(S.xp>=need){S.xp-=need;S.level++;S.coins+=50;
+    say('🎉 SUBISTE PARA O NÍVEL '+S.level+'! +50 🪙');toast('🎉 Nível '+S.level+'!');}}
+
+/* ================= MEMÓRIA / LEMBRETES ================= */
+function checkReminders(){
+  for(const t of S.tasks){if(t.done||t.hour==null)continue;
+    const minsUntil=(t.day-S.day)*1440+(t.hour-S.hour)*60+(t.minute-S.minute);
+    if(minsUntil<0&&!S.reminded[t.id+'past']){S.reminded[t.id+'past']=1;
+      say('⚠️ «'+t.title+'» era para agora! Ainda dá tempo?');toast('⚠️ Prazo: '+t.title);}
+    else if(minsUntil<15&&minsUntil>=0&&!S.reminded[t.id+'now']){S.reminded[t.id+'now']=1;
+      say('Ei, daqui a nada ('+pad(t.hour)+':'+pad(t.minute)+') tens «'+t.title+'». Preparado?');toast('⏰ '+t.title+' às '+pad(t.hour)+':'+pad(t.minute));}
+    else if(minsUntil<60&&minsUntil>=15&&!S.reminded[t.id+'soon']){S.reminded[t.id+'soon']=1;
+      say('Só para não te esqueceres: «'+t.title+'» é daqui a '+minsUntil+' min.');toast('📌 '+t.title);}}
+  for(const ev of S.events){if(ev.type==='bday'){const left=ev.day-S.day;
+    if(left>0&&left<=3&&!S.reminded['ev'+ev.id]){S.reminded['ev'+ev.id]=1;
+      say('🎂 Faltam '+left+' dia(s) para '+ev.label+'. Preparas alguma coisa?');}
+    if(left===0&&!S.reminded['evd'+ev.id]){S.reminded['evd'+ev.id]=1;
+      say('🎉 Hoje é '+ev.label+'!');}}}
+  const NEED_MSGS={fome:'Estou faminto... e se fossemos à cozinha? 🍔',sono:'Não aguento mais... preciso de dormir 😴',
+    energia:'Sem energia... descansa um pouco ⚡',higiene:'Um banho não fazia mal... 🚿',diversao:'Preciso de me divertir! 🎮',
+    social:'Sinto-me sozinho... vamos ao café? 💬',motivacao:'Sem motivação... ajuda-me a focar? 🎯'};
+  for(const[k]of Object.entries(S.needs)){const key='n'+k+S.hour;
+    if(S.needs[k]<20&&!S.reminded[key]){S.reminded[key]=1;say(NEED_MSGS[k]||'Algo não vai bem.');}}
+}
+
+/* ================= NLU — cérebro do companheiro ================= */
+function aiReply(text){
+  const s=text.toLowerCase().trim();
+  const style=PERS[S.personality].style;
+  if(S.pendingConfirm){
+    if(/^(sim|ok|yes|podes|faz|boa|bora|confirma|claro)/.test(s)){
+      const c=S.pendingConfirm;S.pendingConfirm=null;
+      if(c.action==='task'){addTask(c.task);return aiSay('Feito! Criei «'+c.task.title+'» para '+taskTimeStr(c.task)+'. 📌');}
+      if(c.action==='note'){S.notes.push(c.note);save();renderNotes();return aiSay('Nota guardada! 📝');}
+      if(c.action==='event'){S.events.push(c.event);save();return aiSay('Anotado no calendário! 📅');}
+    }else{S.pendingConfirm=null;return aiSay('Ok, cancelado. Diz outra coisa.');}}
+
+  const tmatch=s.match(/(?:lembrar|lembra|cria(?:r)?|marca(?:r)?|adiciona(?:r)?|anota(?:r)?|agenda(?:r)?)\s+(?:que\s+|de\s+)?(.+)/)
+    ||(s.length>3&&!/^(o que|que|quais|tenho|mostra|procura|como|quem|quando|obrigad|bom dia|boa tarde|boa noite|status)/.test(s)?[null,s]:null);
+  if(tmatch){
+    let body=tmatch[1].replace(/^(para|de)\s+/,'').replace(/\.$/,'');
+    const when=parseWhen(body);let title=body;
+    title=title.replace(/(amanhã|hoje|depois de amanhã|segunda[a]?|terça|quarta|quinta|sexta|sábado|domingo)[^,.]*/gi,'')
+      .replace(/às?\s+\d{1,2}\s*[h:]?\d{0,2}/,'').replace(/(de|na|pela)\s+(manhã|manha|tarde|noite)/,'')
+      .replace(/\s{2,}/g,' ').replace(/^(para)\s+/,'').trim();
+    if(!title)title=body;
+    const task={title:title.charAt(0).toUpperCase()+title.slice(1),day:when.day,hour:when.hour,minute:when.minute,
+      prio:/importante|urgente/.test(s)?'alta':'normal',
+      recur:/todas as semanas|diariamente/.test(s)?'semanal':null,
+      cat:/compr/.test(s)?'compras':(/estud|ler|curso/.test(s)?'estudo':(/email|relat|trabalh|reuni/.test(s)?'trabalho':'pessoal'))};
+    S.pendingConfirm={action:'task',task};
+    return aiSay('Queres que crie uma tarefa «'+task.title+'»'+(when.hour!=null?' para '+fmtDate(when.day)+' às '+pad(when.hour)+':'+pad(when.minute):' para '+fmtDate(when.day))+'? (sim/não)');
+  }
+  if(/hoje|agora/.test(s)&&/tarefa|coisa|fazer|alguma|obrigad/.test(s)){
+    const td=S.tasks.filter(t=>!t.done&&t.day===S.day);
+    if(!td.length)return aiSay(style+'Hoje está livre! Relaxa... ou cria uma tarefa nova. 😌');
+    let r='Tens '+td.length+' tarefa(s) hoje:\n'+td.map(t=>'• '+t.title+(t.hour!=null?' ('+pad(t.hour)+':'+pad(t.minute)+')':'')).join('\n');
+    const imp=td.find(t=>t.prio==='alta');if(imp)r+='\n\nA mais importante: «'+imp.title+'».';
+    return aiSay(style+r);}
+  if(/amanh/.test(s)&&/tarefa|tenho|que|coisa/.test(s)){
+    const td=S.tasks.filter(t=>!t.done&&t.day===S.day+1);
+    return aiSay(td.length?'Amanhã tens:\n'+td.map(t=>'• '+t.title).join('\n'):'Amanhã está limpo! 🌤️');}
+  if(/semana/.test(s)&&/important|essencial|principal/.test(s)){
+    const w=S.tasks.filter(t=>!t.done&&t.day<=S.day+7&&t.prio==='alta');
+    return aiSay(w.length?'Esta semana, o essencial:\n'+w.map(t=>'• '+t.title+' — '+fmtDate(t.day)).join('\n'):'Nada crítico esta semana. Bom sinal! ✅');}
+  if(/organiza|plano/.test(s)&&/dia|horário/.test(s)){
+    const td=S.tasks.filter(t=>!t.done&&t.day===S.day).sort((a,b)=>(a.hour??99)-(b.hour??99));
+    if(!td.length)return aiSay('Nada agendado — o dia é todo teu!');
+    let r='Aqui vai o plano:\n',h=8;
+    for(const t of td){const th=t.hour??h;r+='🕐 '+pad(th)+':00 — '+t.title+'\n';h=th+1;}
+    return aiSay(r+'\nE deixa espaço para descansar, sim? 😊');}
+  const bday=s.match(/([\p{L}]+)\s+(?:faz|fazem)?\s*anos?\s+(?:dia\s+)?(\d{1,2})/u);
+  if(/aniversário|anos/.test(s)){const m2=s.match(/aniversário (?:de|da|do) ([\p{L}]+)[^0-9]*(\d{1,2})/u)||bday;
+    if(m2){let nm=m2[1];nm=nm.charAt(0).toUpperCase()+nm.slice(1);
+      const day=parseInt(m2[2]);const cur=(S.day-1)%31+1;
+      const target=day>=cur?S.day+(day-cur):S.day+(31-cur)+day;
+      S.pendingConfirm={action:'event',event:{id:Date.now(),type:'bday',label:'o aniversário de '+nm,day:target}};
+      return aiSay('Anotado na memória! 🎂 '+nm+' faz anos dia '+day+'. Crio um lembrete próximo do dia? (sim/não)');}}
+  const nmatch=s.match(/(?:nota|anota|regista|guarda)\s*[::]?\s*(.+)/);
+  if(nmatch){S.pendingConfirm={action:'note',note:{id:Date.now(),title:'Nota rápida',body:nmatch[1]}};
+    return aiSay('Queres que guarde esta nota? 📝 (sim/não)');}
+  if(/procura|pesquisa|busca/.test(s)){const q=s.replace(/.*(?:sobre|sobre o|sobre a)\s+/,'');
+    const f=S.notes.filter(n=>(n.title+n.body).toLowerCase().includes(q.trim()));
+    return aiSay(f.length?'Encontrei '+f.length+' nota(s):\n'+f.map(n=>'📝 '+n.title+': '+n.body.slice(0,60)).join('\n'):'Não encontrei nada sobre «'+q+'».');}
+  if(/(mostra|lê|ver)\s+(as\s+)?minhas\s+notas/.test(s)){openSheet('notesSheet');return aiSay('Aqui estão as tuas notas! 📝');}
+  if(/calendário|agenda/.test(s)){openSheet('calSheet');return aiSay('Aqui está o calendário! 📅');}
+  if(/bom dia|boa tarde|boa noite/.test(s))return aiSay(greetingByHour());
+  if(/obrigad/.test(s))return aiSay(style+'De nada! É para isso que cá estou. 💙');
+  if(/quem és|como te chamas/.test(s))return aiSay('Sou '+S.name+', o teu companheiro digital. Vivo aqui contigo e ajudo-te a organizar a vida — dentro e fora do jogo. 🏡');
+  if(/status|como estou|necessidades/.test(s)){const low=needLow();
+    return aiSay(low.length?'Atenção a: '+low.map(k=>NEED_ICONS[k]+' '+k).join(', ')+'. Vamos tratar disso?':'Estou ótimo por dentro! Tudo equilibrado. ✨');}
+  return aiSay(style+'Percebi! Experimenta:\n• «lembrar comprar leite amanhã»\n• «que tarefas tenho hoje?»\n• «organiza o meu dia»\n• «nota: ideia brilhante»\n• «Ana faz anos dia 12»');
+}
+function aiSay(t){addMsg(t,'ai');return t;}
+function greetingByHour(){const h=S.hour;return h<12?'Bom dia! ☀️ ':h<19?'Boa tarde! ':'Boa noite! 🌙 ';}
+
+/* ================= CHAT UI ================= */
+function addMsg(text,who){const log=$('chatLog');const d=document.createElement('div');
+  d.className='msg '+who;d.textContent=text;log.appendChild(d);log.scrollTop=log.scrollHeight;}
+function sendChat(){const inp=$('chatIn');const t=inp.value.trim();if(!t)return;
+  inp.value='';addMsg(t,'me');setTimeout(()=>aiReply(t),350);}
+$('chatSend').onclick=sendChat;
+$('chatIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat();});
+$('chatFab').onclick=()=>{openSheet('chatSheet');setTimeout(()=>$('chatIn').focus(),300);};
+
+/* ---------- Voz ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null;
+if(SR){rec=new SR();rec.lang='pt-PT';rec.interimResults=false;
+  rec.onresult=e=>{const t=e.results[0][0].transcript;addMsg(t,'me');aiReply(t);openSheet('chatSheet');};
+  rec.onend=()=>{$('chatMic').classList.remove('rec');$('voiceFab').classList.remove('rec');};}
+function toggleRec(){if(!rec){toast('Voz não suportada aqui 😢 (usa Chrome no telemóvel)');return;}
+  try{rec.start();$('chatMic').classList.add('rec');$('voiceFab').classList.add('rec');toast('🎙️ A ouvir...');}catch(e){try{rec.stop();}catch(_){}}}
+$('chatMic').onclick=toggleRec;
+$('voiceFab').onclick=toggleRec;
+
+/* ================= SHEETS ================= */
+function openSheet(id){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
+  $(id).classList.add('open');}
+document.querySelectorAll('.closeX').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('open'));
+$('btnTasks').onclick=()=>{renderTasks();openSheet('tasksSheet');};
+$('btnCal').onclick=()=>{renderCal();openSheet('calSheet');};
+$('btnNotes').onclick=()=>{renderNotes();openSheet('notesSheet');};
+$('btnShop').onclick=()=>{renderShop();openSheet('shopSheet');};
+$('taskAdd').onclick=()=>{const t=$('taskTitle').value.trim();if(!t){toast('Escreve um título');return;}
+  const w=parseWhen($('taskWhen').value);
+  addTask({title:t,day:w.day,hour:w.hour,minute:w.minute,prio:$('taskPrio').value});
+  $('taskTitle').value='';$('taskWhen').value='';toast('📌 Tarefa criada: '+t);};
+$('noteAdd').onclick=()=>{const ti=$('noteTitle').value.trim(),bo=$('noteBody').value.trim();
+  if(!ti&&!bo){toast('Nota vazia...');return;}
+  S.notes.push({id:Date.now(),title:ti||'Sem título',body:bo});save();
+  $('noteTitle').value='';$('noteBody').value='';renderNotes($('noteSearch').value);};
+$('noteSearch').addEventListener('input',e=>renderNotes(e.target.value));
+
+/* ================= HUD ================= */
+function renderHUD(){
+  $('clock').textContent=dowOf(S.day)+' '+pad(S.hour)+':'+pad(S.minute);
+  $('coins').textContent='🪙 '+S.coins;
+  $('lvl').textContent='⭐ '+S.level;
+  const el=$('needs');
+  if(!el.children.length){for(const k of Object.keys(S.needs)){
+    const d=document.createElement('div');d.className='need';d.id='need-'+k;
+    d.innerHTML='<div class="ico">'+NEED_ICONS[k]+'</div><div class="bar"><i></i></div><span>'+k.slice(0,4)+'</span>';
+    el.appendChild(d);}}
+  for(const[k,v]of Object.entries(S.needs)){const d=$('need-'+k);
+    d.querySelector('i').style.width=v+'%';d.classList.toggle('low',v<25);}
+}
+
+/* ================= ONBOARDING ================= */
+let selPers='amigo',selColor=0x4f46e5;
+const COLORS=[0x4f46e5,0xef4444,0x10b981,0xf59e0b,0xec4899,0x14b8a6];
+function renderPers(){const g=$('persGrid');g.innerHTML='';
+  for(const[id,p]of Object.entries(PERS)){const b=document.createElement('button');
+    b.className='persBtn'+(id===selPers?' sel':'');
+    b.innerHTML=p.label+'<small>'+p.desc+'</small>';
+    b.onclick=()=>{selPers=id;renderPers();};g.appendChild(b);}}
+function renderSw(){const g=$('swatches');g.innerHTML='';
+  COLORS.forEach(c=>{const b=document.createElement('button');b.className='sw'+(c===selColor?' sel':'');
+    b.style.background='#'+c.toString(16).padStart(6,'0');
+    b.onclick=()=>{selColor=c;renderSw();};g.appendChild(b);});}
+renderPers();renderSw();
+$('obStart').onclick=()=>{
+  S.name=$('obName').value.trim()||'Milo';S.personality=selPers;S.color=selColor;
+  if(charGroup)scene.remove(charGroup);
+  charGroup=buildChar(selColor);scene.add(charGroup);placeChar(S.pos.x,S.pos.z);
+  $('onboard').classList.add('hidden');save();startGame();};
+
+/* ================= LOOP ================= */
+let last=0,acc=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(ts-last)/1000);last=ts;
+  acc+=ts?dt*1000:0;
+  if(acc>=600){acc=0;tickClock();checkReminders();renderHUD();save();}
+  stepMove(dt);idlePose();updateInteract();camUpdate(dt);updateSky();
+  renderer.render(scene,camera);
+}
+function startGame(){
+  $('chatTitle').textContent='🤖 '+S.name;
+  renderHUD();renderTasks();renderCal();renderNotes();renderShop();applyDecor();
+  if(S.lastGreetDay!==S.day){S.lastGreetDay=S.day;setTimeout(morningBrief,900);}
+  requestAnimationFrame(t=>{last=t;loop(t);});
+}
+function morningBrief(){
+  const td=S.tasks.filter(t=>!t.done&&t.day===S.day);
+  const yd=S.tasks.filter(t=>!t.done&&t.day<S.day);
+  let msg=PERS[S.personality].greet;
+  if(td.length)msg+=' Hoje tens '+td.length+' tarefa(s)'+(td[0].hour!=null?', a primeira às '+pad(td[0].hour)+':'+pad(td[0].minute):'')+'.';
+  if(yd.length)msg+=' Ficou '+yd.length+' pendente(s) de ontem.';
+  if(td.length||yd.length)msg+=' Queres que organize o teu dia?';
+  say(msg,9000);
+}
+
+/* ================= BOOT ================= */
+load();
+init3D();
+if(localStorage.getItem('vidacozy3d')){
+  if(charGroup)scene.remove(charGroup);
+  charGroup=buildChar(S.color);scene.add(charGroup);placeChar(S.pos.x,S.pos.z);
+  $('onboard').classList.add('hidden');
+  startGame();
+}
+</script>
+</body>
+</html>
